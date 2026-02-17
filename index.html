@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="tr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Notefolio</title>
+    <meta name="description"
+        content="BIST hisse portföyünüzü kolayca takip edin. Kâr/zarar, güncel fiyat ve notlarınızı yönetin.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <!-- Animated background blobs -->
+    <div class="bg-blob blob-1"></div>
+    <div class="bg-blob blob-2"></div>
+    <div class="bg-blob blob-3"></div>
+
+    <div class="app-container">
+        <!-- Header -->
+        <header class="app-header">
+            <div class="logo-area">
+                <div class="logo-icon">
+                    <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+                        <rect width="32" height="32" rx="8" fill="url(#logoGrad)" />
+                        <path d="M8 22L12 14L17 18L24 8" stroke="white" stroke-width="2.5" stroke-linecap="round"
+                            stroke-linejoin="round" />
+                        <circle cx="24" cy="8" r="2.5" fill="white" />
+                        <defs>
+                            <linearGradient id="logoGrad" x1="0" y1="0" x2="32" y2="32">
+                                <stop stop-color="#6366f1" />
+                                <stop offset="1" stop-color="#a855f7" />
+                            </linearGradient>
+                        </defs>
+                    </svg>
+                </div>
+                <div>
+                    <h1>Notefolio</h1>
+                    <p class="subtitle">Yatırım defteri</p>
+                </div>
+            </div>
+            <div class="header-actions">
+                <div class="search-box" id="searchBox">
+                    <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2">
+                        <circle cx="11" cy="11" r="8" />
+                        <path d="m21 21-4.35-4.35" />
+                    </svg>
+                    <input type="text" id="searchInput" placeholder="Hisse ara..." autocomplete="off">
+                </div>
+                <button class="btn-icon" id="refreshAllBtn" title="Tüm fiyatları güncelle">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                        <path d="M3 3v5h5" />
+                        <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" />
+                        <path d="M16 16h5v5" />
+                    </svg>
+                </button>
+            </div>
+        </header>
+
+        <!-- Summary Cards -->
+        <div class="summary-cards">
+            <div class="summary-card">
+                <span class="card-label">Toplam Maliyet</span>
+                <span class="card-value" id="totalCost">₺0,00</span>
+            </div>
+            <div class="summary-card">
+                <span class="card-label">Güncel Değer</span>
+                <span class="card-value" id="totalValue">₺0,00</span>
+            </div>
+            <div class="summary-card">
+                <span class="card-label">Toplam K/Z</span>
+                <span class="card-value" id="totalPL">₺0,00</span>
+            </div>
+            <div class="summary-card">
+                <span class="card-label">K/Z Oranı</span>
+                <span class="card-value" id="totalPLPercent">%0,00</span>
+            </div>
+        </div>
+
+        <!-- Add Stock Form -->
+        <div class="add-form glass-card" id="addForm">
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="inputSymbol">Sembol</label>
+                    <input type="text" id="inputSymbol" placeholder="ör. THYAO" autocomplete="off" spellcheck="false">
+                </div>
+                <div class="form-group">
+                    <label for="inputLot">Lot</label>
+                    <input type="number" id="inputLot" placeholder="100" min="0" step="1">
+                </div>
+                <div class="form-group">
+                    <label for="inputCost">Maliyet (₺)</label>
+                    <input type="number" id="inputCost" placeholder="25.50" min="0" step="0.01">
+                </div>
+                <div class="form-group">
+                    <label for="inputNote">Not</label>
+                    <input type="text" id="inputNote" placeholder="Kısa not..." autocomplete="off">
+                </div>
+                <button class="btn-add" id="addBtn">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        stroke-width="2.5">
+                        <path d="M12 5v14M5 12h14" />
+                    </svg>
+                    Ekle
+                </button>
+            </div>
+        </div>
+
+        <!-- Portfolio Table -->
+        <div class="table-wrapper glass-card">
+            <table id="portfolioTable">
+                <thead>
+                    <tr>
+                        <th>Sembol</th>
+                        <th>Lot</th>
+                        <th>Maliyet</th>
+                        <th>Güncel Fiyat</th>
+                        <th>K/Z Oranı</th>
+                        <th>Toplam Değer</th>
+                        <th>Not</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody id="portfolioBody">
+                    <!-- Rows rendered by JS -->
+                </tbody>
+            </table>
+            <div class="empty-state" id="emptyState">
+                <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+                    <path d="M12 2L2 7l10 5 10-5-10-5z" />
+                    <path d="M2 17l10 5 10-5" />
+                    <path d="M2 12l10 5 10-5" />
+                </svg>
+                <p>Henüz hisse eklenmedi</p>
+                <span>Yukarıdaki formu kullanarak portföyünüze hisse ekleyin</span>
+            </div>
+        </div>
+
+        <!-- Toast container -->
+        <div id="toastContainer" class="toast-container"></div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+
+</html>
