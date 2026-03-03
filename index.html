@@ -1,0 +1,1089 @@
+<!DOCTYPE html>
+<html lang="tr">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Notefolio - Portföy Fişi</title>
+
+  <!-- PWA Meta Tags -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#121212">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Portföy">
+  <link rel="apple-touch-icon"
+    href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='192' height='192'><rect width='192' height='192' fill='%23121212'/><text x='50%' y='50%' font-size='80' fill='%230a7c41' font-family='monospace' text-anchor='middle' dominant-baseline='central'>$</text></svg>">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap"
+    rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+
+  <style>
+    :root {
+      --bg-dark: #121212;
+      --printer-dark: #1a1a1a;
+      --printer-slot: #000000;
+
+      --paper-bg: #fdfcf4;
+      --ink: #1a1a1a;
+      --ink-dim: #555555;
+
+      --accent-green: #0a7c41;
+      --accent-red: #d32f2f;
+      --font-mono: 'Space Mono', monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html {
+      background-color: var(--bg-dark);
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      color: var(--ink);
+      font-family: var(--font-mono);
+      min-height: 100vh;
+      /* Full exact height minus browser UI, good for PWA and Mobile */
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      /* Add safe-area to avoid notches and home indicators */
+      padding-top: env(safe-area-inset-top);
+      padding-bottom: 0px;
+      padding-left: env(safe-area-inset-left);
+      padding-right: env(safe-area-inset-right);
+      transition: filter 0.3s ease, background-color 0.3s ease;
+    }
+
+    /* Dark Mode Solid Colors */
+    body.invert-mode {
+      --bg-dark: #0d0d0d;
+      --paper-bg: #0e0e0e;
+      --ink: #e0e0e0;
+      --ink-dim: #a3a3a3;
+    }
+
+
+    /* PRINTER UI (Removed) */
+
+    .printer-display-panel {
+      position: absolute;
+      top: 30px;
+      left: 50px;
+      background: #000;
+      padding: 5px 12px;
+      border-radius: 4px;
+      box-shadow: inset 0 0 8px rgba(0, 0, 0, 0.8);
+      border: 1px solid #333;
+    }
+
+    .dot-matrix {
+      font-family: 'Courier New', Courier, monospace;
+      color: #ff3300;
+      font-size: 14px;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      text-shadow: 0 0 5px #ff3300;
+    }
+
+    .printer-slot {
+      width: calc(100% - 40px);
+      max-width: 500px;
+      height: 12px;
+      background: var(--printer-slot);
+      border-radius: 6px;
+      box-shadow: inset 0 5px 10px rgba(0, 0, 0, 1);
+      position: relative;
+    }
+
+    /* RECEIPT PAPER */
+    .receipt-container {
+      width: 100%;
+      max-width: 460px;
+      /* Slightly narrower than the slot */
+      background-color: var(--paper-bg);
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+      position: relative;
+      margin-top: -15px;
+      /* Pull it up into the slot slightly */
+      z-index: 10;
+      min-height: 100vh;
+      margin: 0 auto;
+
+      /* Zig-zag bottom edge */
+      padding-bottom: 30px;
+    }
+
+    .receipt-container::after {
+      content: "";
+      position: absolute;
+      bottom: -10px;
+      left: 0;
+      width: 100%;
+      height: 10px;
+      background: linear-gradient(45deg, transparent 33.333%, var(--paper-bg) 33.333%, var(--paper-bg) 66.667%, transparent 66.667%), linear-gradient(-45deg, transparent 33.333%, var(--paper-bg) 33.333%, var(--paper-bg) 66.667%, transparent 66.667%);
+      background-size: 20px 20px;
+      background-position: 0 -10px;
+    }
+
+    /* Inner Receipt Content */
+    .receipt-content {
+      padding: 30px 20px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+    }
+
+    .receipt-header {
+      text-align: center;
+      margin-bottom: 10px;
+      position: relative;
+    }
+
+    .receipt-title {
+      font-size: 22px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      margin-bottom: 5px;
+    }
+
+    .receipt-subtitle {
+      font-size: 12px;
+      color: var(--ink-dim);
+    }
+
+    .divider {
+      border: none;
+      border-top: 2px dashed var(--ink);
+      margin: 10px 0;
+    }
+
+    /* Table Styles */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    th,
+    td {
+      padding: 6px 4px;
+      text-align: right;
+    }
+
+    th {
+      font-weight: 700;
+      border-bottom: 2px dashed var(--ink);
+    }
+
+    th:first-child,
+    td:first-child {
+      text-align: left;
+    }
+
+    .positive {
+      color: var(--accent-green);
+      font-weight: bold;
+    }
+
+    .negative {
+      color: var(--accent-red);
+      font-weight: bold;
+    }
+
+    /* Summary Block */
+    .summary-block {
+      display: flex;
+      justify-content: space-between;
+      font-weight: 700;
+      font-size: 16px;
+      margin-top: 10px;
+    }
+
+    /* Button Styles mimicking printer/physical buttons or receipt text */
+    .btn-action {
+      background: transparent;
+      border: 2px solid var(--ink);
+      color: var(--ink);
+      font-family: var(--font-mono);
+      font-weight: 700;
+      font-size: 14px;
+      padding: 8px 15px;
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      transition: all 0.2s;
+      width: 100%;
+      margin-top: 5px;
+      -webkit-appearance: none;
+      appearance: none;
+      touch-action: manipulation;
+    }
+
+    .btn-action:hover {
+      background: var(--ink);
+      color: var(--paper-bg);
+    }
+
+    tbody tr {
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+
+    tbody tr:hover {
+      background-color: rgba(0, 0, 0, 0.05);
+    }
+
+    .barcode {
+      text-align: center;
+      font-family: 'Libre Barcode 39 Text', 'Courier New', monospace;
+      /* fallback */
+      font-size: 32px;
+      margin-top: 20px;
+      letter-spacing: -2px;
+    }
+
+    /* Hardware Buttons (Removed, moved to receipt) */
+    .hardware-buttons {
+      display: none;
+    }
+
+    /* Inputs */
+    .input-group {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      margin-bottom: 10px;
+      font-size: 13px;
+    }
+
+    .input-group input,
+    .input-group select {
+      background: transparent;
+      border: none;
+      border-bottom: 2px dotted var(--ink);
+      font-family: var(--font-mono);
+      font-size: 16px;
+      /* 16px prevents iOS auto-zoom */
+      color: var(--ink);
+      padding: 4px 0;
+      outline: none;
+      border-radius: 0;
+      -webkit-appearance: none;
+      appearance: none;
+    }
+
+    /* Modals */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.8);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 200;
+    }
+
+    .modal-content {
+      background: var(--paper-bg);
+      padding: 20px;
+      width: 90%;
+      max-width: 400px;
+      border: 3px solid var(--ink);
+      box-shadow: 10px 10px 0px var(--ink);
+      max-height: 85vh;
+      overflow-y: auto;
+    }
+
+    /* Dropdown */
+    /* Dark Mode Toggle Button */
+    .dark-mode-toggle {
+      position: absolute;
+      top: -15px;
+      right: -5px;
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--ink);
+      padding: 5px;
+      transition: transform 0.2s;
+      -webkit-appearance: none;
+      appearance: none;
+      touch-action: manipulation;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .dark-mode-toggle svg {
+      width: 20px;
+      height: 20px;
+      fill: currentColor;
+      transform: rotate(90deg);
+    }
+
+    .dark-mode-toggle:active {
+      transform: scale(0.9);
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="receipt-container">
+    <div class="receipt-content">
+
+      <div class="receipt-header">
+        <button class="dark-mode-toggle" onclick="toggleDarkMode()" id="darkModeBtn" aria-label="Toggle Dark Mode">
+          <!-- Vector Half Moon SVG -->
+          <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path
+              d="M21.996 12.882C21.311 15.698 19.344 18.067 16.711 19.362C14.078 20.657 11.026 20.767 8.32402 19.659C5.62199 18.552 3.51804 16.326 2.54099 13.535C1.56394 10.744 1.81099 7.64303 3.32499 5.00003C5.00002 8.00003 8.00002 10 11.996 10C15.996 10 18.996 8.00003 20.996 5.00003C21.652 7.50203 21.996 10 21.996 12.882Z" />
+          </svg>
+        </button>
+        <div class="receipt-title">PORTFÖY TAKİP</div>
+        <div class="receipt-subtitle" id="date-display">Tarih: --/--/----</div>
+        <div class="receipt-subtitle">@YBIST1</div>
+
+
+        <div style="display:flex; justify-content:center; gap: 10px; margin-top: 15px; flex-wrap: wrap;">
+          <button class="btn-action" style="font-size: 11px; padding: 4px 8px; width: auto;"
+            onclick="openModal('portfolioModal')">PORTFÖYLER</button>
+          <button class="btn-action" style="font-size: 11px; padding: 4px 8px; width: auto;"
+            onclick="openModal('addStockModal')">+ HİSSE</button>
+          <button class="btn-action" style="font-size: 11px; padding: 4px 8px; width: auto;"
+            onclick="openModal('addCashModal')">+ NAKİT</button>
+          <button class="btn-action" style="font-size: 11px; padding: 4px 8px; width: auto;"
+            onclick="exportData()">DIŞARI AKTAR</button>
+          <button class="btn-action" style="font-size: 11px; padding: 4px 8px; width: auto;"
+            onclick="document.getElementById('importFile').click()">İÇERİ AKTAR</button>
+          <input type="file" id="importFile" style="display:none" accept=".json" onchange="importData(event)">
+        </div>
+      </div>
+
+      <select class="pf-selector" id="portfolioSelect" onchange="changePortfolio()">
+        <!-- Populated via JS -->
+      </select>
+
+      <hr class="divider">
+
+      <table id="stockTable">
+        <thead>
+          <tr>
+            <th>SEMBOL</th>
+            <th>ADET/MLY</th>
+            <th>NOT</th>
+            <th>K/Z(%)</th>
+          </tr>
+        </thead>
+        <tbody id="stockTableBody">
+          <!-- Rows -->
+        </tbody>
+      </table>
+
+      <hr class="divider">
+
+      <div class="summary-block">
+        <span>TOPLAM MLY:</span>
+        <span id="totalCost">0.00 ₺</span>
+      </div>
+      <div class="summary-block">
+        <span>GÜNCEL BD:</span>
+        <span id="currentValue">0.00 ₺</span>
+      </div>
+      <div class="summary-block" style="color: var(--accent-green);">
+        <span>NAKİT:</span>
+        <span id="cashValue">0.00 ₺</span>
+      </div>
+      <div class="summary-block">
+        <span>NET K/Z:</span>
+        <span id="totalPL">0.00 ₺</span>
+      </div>
+      <div class="summary-block" style="margin-top: 15px; border-top: 2px solid var(--ink); padding-top: 5px;">
+        <span>TOPLAM VARLIK:</span>
+        <span id="totalWealth">0.00 ₺</span>
+      </div>
+
+      <hr class="divider">
+
+      <div style="font-weight:700; font-size:14px; text-align:center; margin-top:15px;">PERFORMANS GRAFİĞİ</div>
+      <div style="width:100%; height:150px; margin-top:10px; margin-bottom:10px;">
+        <canvas id="receiptChart"></canvas>
+      </div>
+
+      <div style="text-align: center; font-size: 10px; margin-top: 5px;">MALI DEĞERİ YOKTUR</div>
+
+    </div>
+  </div>
+
+  <!-- Real Cash Add Modal -->
+  <div class="modal-overlay" id="addCashModal">
+    <div class="modal-content">
+      <div class="receipt-title" style="font-size: 16px;">NAKİT YÖNETİMİ</div>
+      <hr class="divider">
+      <div class="input-group">
+        <label>Tutar (₺)</label>
+        <input type="number" id="addCashAmount" step="any" placeholder="Örn: 5000">
+      </div>
+      <div style="display: flex; gap: 10px; margin-top: 20px;">
+        <button class="btn-action" onclick="updateCash()" style="color: var(--accent-green);">EKLE</button>
+        <button class="btn-action" onclick="subtractCash()" style="color: var(--accent-red);">ÇIKAR</button>
+      </div>
+      <div style="display: flex; justify-content: center; margin-top: 10px;">
+        <button class="btn-action" onclick="closeModal('addCashModal')" style="width: auto;">İPTAL</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sell Modal -->
+  <div class="modal-overlay" id="sellStockModal">
+    <div class="modal-content">
+      <div class="receipt-title" style="font-size: 16px;">HİSSE SATIŞ</div>
+      <hr class="divider">
+      <div class="input-group">
+        <label>Satılacak Sembol</label>
+        <input type="text" id="sellSymbol" disabled>
+      </div>
+      <div class="input-group">
+        <label>Satılacak Lot Sayısı</label>
+        <input type="number" id="sellLots" step="any">
+      </div>
+      <div class="input-group">
+        <label>Satış Fiyatı (₺)</label>
+        <input type="number" id="sellPrice" step="any">
+      </div>
+      <div class="input-group" style="flex-direction: row; gap: 10px; align-items: center; margin-top: 10px;">
+        <input type="checkbox" id="addToCashCheckbox" checked
+          style="width: 20px; height: 20px; border: 2px solid var(--ink); appearance: auto; -webkit-appearance: auto;">
+        <label for="addToCashCheckbox" style="font-weight: 700; cursor: pointer;">Satış Tutarını Nakite Ekle</label>
+      </div>
+      <input type="hidden" id="sellIndex">
+      <div style="display: flex; gap: 10px; margin-top: 20px;">
+        <button class="btn-action" onclick="executeSell()">ONAYLA</button>
+        <button class="btn-action" onclick="closeModal('sellStockModal')">İPTAL</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add Stock Modal -->
+  <div class="modal-overlay" id="addStockModal">
+    <div class="modal-content">
+      <div class="receipt-title" style="font-size: 16px;">YENİ HİSSE GİRİŞİ</div>
+      <hr class="divider">
+      <div class="input-group">
+        <label>Sembol (Örn: THYAO)</label>
+        <input type="text" id="addSymbol" style="text-transform: uppercase;">
+      </div>
+      <div class="input-group">
+        <label>Lot Sayısı</label>
+        <input type="number" id="addLots" step="any">
+      </div>
+      <div class="input-group">
+        <label>Maliyet (₺)</label>
+        <input type="number" id="addCost" step="any">
+      </div>
+      <div class="input-group">
+        <label>Not (Opsiyonel)</label>
+        <input type="text" id="addNote">
+      </div>
+      <div style="display: flex; gap: 10px; margin-top: 20px;">
+        <button class="btn-action" onclick="saveStock()">KAYDET</button>
+        <button class="btn-action" onclick="closeModal('addStockModal')">İPTAL</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Manage Portfolios Modal -->
+  <div class="modal-overlay" id="portfolioModal">
+    <div class="modal-content">
+      <div class="receipt-title" style="font-size: 16px;">PORTFÖY YÖNETİMİ</div>
+      <hr class="divider">
+      <div class="input-group">
+        <label>Yeni Portföy Adı</label>
+        <input type="text" id="newPfName">
+      </div>
+      <button class="btn-action" onclick="addPortfolio()">OLUŞTUR</button>
+      <hr class="divider" style="margin: 20px 0;">
+      <button class="btn-action" onclick="closeModal('portfolioModal')">KAPAT</button>
+    </div>
+  </div>
+
+  <script>
+    // --- Data Management ---
+    const APP_STATE = {
+      portfolios: [],
+      currentPfId: null,
+      stocks: {}, // keyed by currentPfId: array of stock objects
+      cash: {}, // keyed by currentPfId: number
+      prices: {} // keyed by symbol
+    };
+
+    const PORTFOLIO_SHEET_ID = '2PACX-1vQZU3efyAwOCiTVWKrC9FA6q7caI6Wg_N7wvAHpf90oWd4uc9CuRgrgaErxUOxk7Q';
+
+    function isSameMonth(d1, d2) {
+      return d1.getFullYear() === d2.getFullYear() && d1.getMonth() === d2.getMonth();
+    }
+
+    function init() {
+      // Load Date
+      document.getElementById('date-display').textContent = 'Tarih: ' + new Date().toLocaleDateString('tr-TR');
+      initChart();
+
+      // Check Dark Mode Spec
+      if (localStorage.getItem('dark_mode_inverted') === 'true') {
+        document.body.classList.add('invert-mode');
+      }
+
+      loadDataFromLocalStorage();
+
+      // Auto-sync every 5 seconds
+      setInterval(syncPrices, 5000);
+    }
+
+
+    // --- Data Loading ---
+
+    function loadDataFromLocalStorage() {
+      let storedList = localStorage.getItem('portfolio_list');
+      if (storedList) {
+        APP_STATE.portfolios = JSON.parse(storedList);
+        APP_STATE.currentPfId = localStorage.getItem('portfolio_current_id');
+      } else {
+        const initPf = { id: '1', name: "Ana Portföy" };
+        APP_STATE.portfolios = [initPf];
+        APP_STATE.currentPfId = '1';
+        localStorage.setItem('portfolio_list', JSON.stringify(APP_STATE.portfolios));
+        localStorage.setItem('portfolio_current_id', '1');
+      }
+
+      const d = new Date();
+      const currentMonthStr = String(d.getMonth() + 1).padStart(2, '0') + '-' + d.getFullYear();
+
+      APP_STATE.portfolios.forEach(pf => {
+        let key = `portfolio_open_${currentMonthStr}_${pf.id}`;
+        let legacyKey = `portfolio_open_${currentMonthStr}`;
+        let stocks = localStorage.getItem(key);
+        if (!stocks && pf.id == APP_STATE.currentPfId) stocks = localStorage.getItem(legacyKey);
+
+        APP_STATE.stocks[pf.id] = stocks ? JSON.parse(stocks) : [];
+
+        let cashKey = `portfolio_cash_${pf.id}`;
+        APP_STATE.cash[pf.id] = parseFloat(localStorage.getItem(cashKey)) || 0;
+      });
+
+      renderPortfolioSelect();
+      renderTable();
+      syncPrices();
+    }
+
+    // --- UI Render ---
+    function renderPortfolioSelect() {
+      const sel = document.getElementById('portfolioSelect');
+      sel.innerHTML = '';
+      APP_STATE.portfolios.forEach(pf => {
+        const opt = document.createElement('option');
+        opt.value = pf.id;
+        opt.textContent = pf.name;
+        if (pf.id == APP_STATE.currentPfId) opt.selected = true;
+        sel.appendChild(opt);
+      });
+    }
+
+    function changePortfolio() {
+      APP_STATE.currentPfId = document.getElementById('portfolioSelect').value;
+      localStorage.setItem('portfolio_current_id', APP_STATE.currentPfId);
+      renderTable();
+    }
+
+    function renderTable() {
+      const tbody = document.getElementById('stockTableBody');
+      tbody.innerHTML = '';
+
+      const stocks = APP_STATE.stocks[APP_STATE.currentPfId] || [];
+
+      let totalCostVal = 0;
+      let curValSum = 0;
+
+      if (stocks.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding: 20px;">BOS</td></tr>';
+      }
+
+      stocks.forEach((s, idx) => {
+        const cost = (s.lots || 0) * (s.averageCost || 0);
+        totalCostVal += cost;
+
+        const currentPrice = APP_STATE.prices[s.symbol] || s.averageCost; // fallback to cost if no price
+        const curVal = (s.lots || 0) * currentPrice;
+        if (APP_STATE.prices[s.symbol]) {
+          curValSum += curVal;
+        } else {
+          curValSum += cost; // Avoid false PL diff if no price fetched
+        }
+
+        const profitPct = ((currentPrice - s.averageCost) / s.averageCost) * 100;
+        const colorClass = profitPct > 0 ? 'positive' : (profitPct < 0 ? 'negative' : '');
+        const sign = profitPct > 0 ? '+' : '';
+
+        let note = s.notes || '-';
+        if (note.length > 8) note = note.substring(0, 8) + '..';
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${s.symbol}<br><span style="font-size:10px;color:var(--ink-dim)">${formatNum(currentPrice)} ₺</span></td>
+          <td>${formatNum(s.lots)}<br><span style="font-size:10px;color:var(--ink-dim)">Mly: ${formatNum(s.averageCost)} ₺</span></td>
+          <td style="font-size:11px; max-width:60px; word-wrap:break-word;">${note}</td>
+          <td><span class="${colorClass}">${sign}${formatNum(profitPct)}%</span><br><span style="font-size:10px;color:var(--ink-dim)">${(curVal - cost > 0 ? '+' : '') + formatNum(curVal - cost)} ₺</span></td>
+        `;
+        // Make row clickable to open Sell/Delete options
+        tr.onclick = () => {
+          document.getElementById('sellIndex').value = idx;
+          document.getElementById('sellSymbol').value = s.symbol;
+          document.getElementById('sellLots').value = s.lots;
+          document.getElementById('sellPrice').value = currentPrice.toFixed(2);
+          openModal('sellStockModal');
+        };
+        tbody.appendChild(tr);
+      });
+
+      const cashAmt = APP_STATE.cash[APP_STATE.currentPfId] || 0;
+      const totalPL = curValSum - totalCostVal;
+
+      document.getElementById('totalCost').textContent = formatNum(totalCostVal) + ' ₺';
+      document.getElementById('currentValue').textContent = formatNum(curValSum) + ' ₺';
+      document.getElementById('cashValue').textContent = formatNum(cashAmt) + ' ₺';
+
+      const tlWealth = curValSum + cashAmt;
+      document.getElementById('totalWealth').textContent = formatNum(tlWealth) + ' ₺';
+
+      const plEl = document.getElementById('totalPL');
+      plEl.textContent = (totalPL > 0 ? '+' : '') + formatNum(totalPL) + ' ₺';
+      plEl.className = totalPL > 0 ? 'positive' : (totalPL < 0 ? 'negative' : '');
+
+      updateChart(stocks);
+    }
+
+    // --- Actions ---
+    function updateCash() {
+      const amt = parseFloat(document.getElementById('addCashAmount').value);
+      if (isNaN(amt) || amt <= 0) return;
+      APP_STATE.cash[APP_STATE.currentPfId] = (APP_STATE.cash[APP_STATE.currentPfId] || 0) + amt;
+      saveState();
+      closeModal('addCashModal');
+      document.getElementById('addCashAmount').value = '';
+      renderTable();
+    }
+
+    function subtractCash() {
+      const amt = parseFloat(document.getElementById('addCashAmount').value);
+      if (isNaN(amt) || amt <= 0) return;
+      APP_STATE.cash[APP_STATE.currentPfId] = Math.max(0, (APP_STATE.cash[APP_STATE.currentPfId] || 0) - amt);
+      saveState();
+      closeModal('addCashModal');
+      document.getElementById('addCashAmount').value = '';
+      renderTable();
+    }
+
+    function executeSell() {
+      const idx = document.getElementById('sellIndex').value;
+      const lotsToSell = parseFloat(document.getElementById('sellLots').value);
+      const sellPrice = parseFloat(document.getElementById('sellPrice').value);
+      const toCash = document.getElementById('addToCashCheckbox').checked;
+
+      if (isNaN(lotsToSell) || isNaN(sellPrice) || lotsToSell <= 0) return;
+
+      const stock = APP_STATE.stocks[APP_STATE.currentPfId][idx];
+      if (lotsToSell > stock.lots) {
+        alert("Sahip olduğunuzdan fazla lot satamazsınız!");
+        return;
+      }
+
+      if (toCash) {
+        const cashValue = lotsToSell * sellPrice;
+        APP_STATE.cash[APP_STATE.currentPfId] = (APP_STATE.cash[APP_STATE.currentPfId] || 0) + cashValue;
+      }
+
+      if (lotsToSell === stock.lots) {
+        APP_STATE.stocks[APP_STATE.currentPfId].splice(idx, 1);
+      } else {
+        stock.lots -= lotsToSell;
+      }
+
+      saveState();
+      closeModal('sellStockModal');
+      renderTable();
+    }
+
+    function deleteStock(idx) {
+      APP_STATE.stocks[APP_STATE.currentPfId].splice(idx, 1);
+      saveState();
+      renderTable();
+    }
+
+    function saveStock() {
+      const sym = document.getElementById('addSymbol').value.toUpperCase().trim();
+      const lots = parseFloat(document.getElementById('addLots').value);
+      const cost = parseFloat(document.getElementById('addCost').value);
+      const note = document.getElementById('addNote').value.trim();
+
+      if (!sym || isNaN(lots) || isNaN(cost)) {
+        alert("Lütfen tüm alanları doldurun.");
+        return;
+      }
+
+      if (!APP_STATE.stocks[APP_STATE.currentPfId]) {
+        APP_STATE.stocks[APP_STATE.currentPfId] = [];
+      }
+
+      // Instead of merging (hard in receipt UI without dedicated edit mode), we just add as new line item.
+      // Merging logic can be complex, let's just append for now to simulate "Receipt line items".
+      APP_STATE.stocks[APP_STATE.currentPfId].push({
+        id: Date.now().toString(),
+        symbol: sym,
+        lots: lots,
+        averageCost: cost,
+        notes: note
+      });
+
+      saveState();
+      closeModal('addStockModal');
+      document.getElementById('addSymbol').value = '';
+      document.getElementById('addLots').value = '';
+      document.getElementById('addCost').value = '';
+      document.getElementById('addNote').value = '';
+
+      // Auto fetch the new stock price
+      fetchSinglePrice(sym);
+      renderTable();
+    }
+
+    function addPortfolio() {
+      const name = document.getElementById('newPfName').value.trim();
+      if (!name) return;
+
+      const newId = Date.now().toString();
+      APP_STATE.portfolios.push({ id: newId, name: name });
+      APP_STATE.stocks[newId] = [];
+      APP_STATE.cash[newId] = 0;
+      APP_STATE.currentPfId = newId;
+
+      localStorage.setItem('portfolio_list', JSON.stringify(APP_STATE.portfolios));
+      localStorage.setItem('portfolio_current_id', newId);
+
+      closeModal('portfolioModal');
+      document.getElementById('newPfName').value = '';
+      renderPortfolioSelect();
+      renderTable();
+    }
+
+    function saveState() {
+      const d = new Date();
+      const currentMonthStr = String(d.getMonth() + 1).padStart(2, '0') + '-' + d.getFullYear();
+
+      const pfId = APP_STATE.currentPfId;
+      const key = `portfolio_open_${currentMonthStr}_${pfId}`;
+      localStorage.setItem(key, JSON.stringify(APP_STATE.stocks[pfId] || []));
+
+      const cashKey = `portfolio_cash_${pfId}`;
+      localStorage.setItem(cashKey, APP_STATE.cash[pfId] || 0);
+    }
+
+    // --- Pricing ---
+    function parseCSVLine(line) {
+      const parts = [];
+      let current = '';
+      let inQuotes = false;
+      for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+        if (char === '"') {
+          inQuotes = !inQuotes;
+        } else if (char === ',' && !inQuotes) {
+          parts.push(current.trim());
+          current = '';
+        } else {
+          current += char;
+        }
+      }
+      parts.push(current.trim());
+      return parts;
+    }
+
+    async function fetchCSVText() {
+      const timestamp = new Date().getTime();
+      const encodedUrl = encodeURIComponent(`https://docs.google.com/spreadsheets/d/e/${PORTFOLIO_SHEET_ID}/pub?output=csv&t=${timestamp}`);
+
+      const proxies = [
+        `https://api.allorigins.win/raw?url=${encodedUrl}`,
+        `https://corsproxy.io/?${encodedUrl}`,
+        `https://api.codetabs.com/v1/proxy?quest=${encodedUrl}`
+      ];
+
+      // Fire all proxy requests simultaneously and race them. The first successful response wins.
+      try {
+        const text = await Promise.any(proxies.map(async (proxy) => {
+          const res = await fetch(proxy);
+          if (!res.ok) throw new Error(`Proxy failed: ${proxy}`);
+          return res.text();
+        }));
+        return text;
+      } catch (aggregateError) {
+        console.error("All proxies failed:", aggregateError);
+        throw new Error("Tüm veri çekme servisleri başarısız oldu.");
+      }
+    }
+
+    async function fetchSinglePrice(sym) {
+      try {
+        const text = await fetchCSVText();
+        const lines = text.trim().split('\n');
+        const base = sym.replace(/^IST:/i, '');
+        for (const line of lines) {
+          const parts = parseCSVLine(line);
+          const ticker = parts[0].replace(/^"|"$/g, '').toUpperCase();
+          if (ticker === base || ticker === 'IST:' + base) {
+            let pricePart = "";
+            for (let i = 1; i < parts.length; i++) {
+              let val = parts[i].replace(/^"|"$/g, '').trim();
+              if (val && /^\d{1,3}(\.\d{3})*(,\d+)?$/.test(val) || /^\d+(,\d+)?$/.test(val)) {
+                pricePart = val;
+                break;
+              }
+            }
+
+            if (pricePart) {
+              pricePart = pricePart.replace(/\./g, '').replace(',', '.'); // Handle 1.234,56 format
+              const p = parseFloat(pricePart);
+              if (!isNaN(p)) {
+                APP_STATE.prices[sym] = p;
+              }
+            }
+            break;
+          }
+        }
+        renderTable();
+      } catch (err) {
+        console.error("Fetch single price error", err);
+      }
+    }
+
+    async function syncPrices() {
+      try {
+        const stocks = APP_STATE.stocks[APP_STATE.currentPfId] || [];
+        if (stocks.length === 0) return;
+
+        const text = await fetchCSVText();
+        const lines = text.trim().split('\n');
+
+        stocks.forEach(s => {
+          const base = s.symbol.toUpperCase().replace(/^IST:/i, '');
+          for (const line of lines) {
+            const parts = parseCSVLine(line);
+            const ticker = parts[0].replace(/^"|"$/g, '').toUpperCase();
+            if (ticker === base || ticker === 'IST:' + base) {
+              let pricePart = "";
+              for (let i = 1; i < parts.length; i++) {
+                let val = parts[i].replace(/^"|"$/g, '').trim();
+                // Ensure match on 1.234,56 format or standard decimal/comma
+                if (val && /^(\d{1,3}(\.\d{3})*(,\d+)?|\d+(,\d+)?)$/.test(val)) {
+                  pricePart = val;
+                  break; // Found the price string
+                }
+              }
+
+              if (pricePart) {
+                let normalized = pricePart.replace(/\./g, '').replace(',', '.');
+                const p = parseFloat(normalized);
+                if (!isNaN(p)) {
+                  APP_STATE.prices[s.symbol] = p;
+                }
+              }
+              break;
+            }
+          }
+        });
+        renderTable();
+
+      } catch (e) {
+        console.error("Sync prices error", e);
+      }
+    }
+
+    // --- Export / Import ---
+    function exportData() {
+      const data = {
+        portfolios: APP_STATE.portfolios,
+        currentPfId: APP_STATE.currentPfId,
+        stocks: APP_STATE.stocks
+      };
+      const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'portfoy_yedek.json';
+      a.click();
+    }
+
+    function importData(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        try {
+          const data = JSON.parse(ev.target.result);
+          if (!data.portfolios || !data.stocks) throw new Error("Invalid format");
+
+          APP_STATE.portfolios = data.portfolios;
+          APP_STATE.currentPfId = data.currentPfId || (data.portfolios[0] ? data.portfolios[0].id : null);
+          APP_STATE.stocks = data.stocks;
+
+          localStorage.setItem('portfolio_list', JSON.stringify(APP_STATE.portfolios));
+          localStorage.setItem('portfolio_current_id', APP_STATE.currentPfId);
+
+          const d = new Date();
+          const mStr = String(d.getMonth() + 1).padStart(2, '0') + '-' + d.getFullYear();
+          for (let pfId in APP_STATE.stocks) {
+            localStorage.setItem(`portfolio_open_${mStr}_${pfId}`, JSON.stringify(APP_STATE.stocks[pfId]));
+            let cashKey = `portfolio_cash_${pfId}`;
+            localStorage.setItem(cashKey, APP_STATE.cash[pfId] || 0);
+          }
+
+          syncToFirebase();
+          renderPortfolioSelect();
+          renderTable();
+          syncPrices();
+          alert("İçe aktarma başarılı!");
+        } catch (err) {
+          alert("Hatalı dosya formatı!");
+        }
+        // clear input
+        e.target.value = '';
+      };
+      reader.readAsText(file);
+    }
+
+    // --- Chart ---
+    let receiptChartInst = null;
+    function initChart() {
+      const ctx = document.getElementById('receiptChart').getContext('2d');
+      Chart.defaults.font.family = "'Space Mono', monospace";
+      Chart.defaults.color = document.body.classList.contains('invert-mode') ? "#e0e0e0" : "#1a1a1a";
+
+      receiptChartInst = new Chart(ctx, {
+        type: 'bar',
+        data: { labels: [], datasets: [] },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              backgroundColor: '#1a1a1a',
+              titleFont: { family: "'Space Mono', monospace" },
+              bodyFont: { family: "'Space Mono', monospace" }
+            }
+          },
+          scales: {
+            x: {
+              grid: { display: false, drawBorder: true, borderColor: document.body.classList.contains('invert-mode') ? '#e0e0e0' : '#1a1a1a' },
+              ticks: { maxRotation: 45, minRotation: 45 }
+            },
+            y: {
+              grid: { borderDash: [2, 2], color: document.body.classList.contains('invert-mode') ? '#555' : '#ccc', drawBorder: false },
+              position: 'right'
+            }
+          }
+        }
+      });
+    }
+
+    function updateChart(stocks) {
+      if (!receiptChartInst) return;
+      const labels = [];
+      const data = [];
+      const bgColors = [];
+
+      // Aggregate by symbol
+      const agg = {};
+      stocks.forEach(s => {
+        if (!agg[s.symbol]) agg[s.symbol] = { cost: 0, cur: 0 };
+        const c = s.lots * s.averageCost;
+        const curP = APP_STATE.prices[s.symbol] || s.averageCost;
+        const curV = s.lots * curP;
+        agg[s.symbol].cost += c;
+        agg[s.symbol].cur += curV;
+      });
+
+      const palette = ['#e6194b', '#3cb44b', '#ffe119', '#4363d8', '#f58231', '#911eb4', '#46f0f0', '#f032e6', '#bcf60c', '#fabebe', '#008080', '#e6beff', '#9a6324', '#fffac8', '#800000', '#aaffc3', '#808000', '#ffd8b1', '#000075', '#808080'];
+
+      let colorIndex = 0;
+      for (let sym in agg) {
+        labels.push(sym);
+        const pl = agg[sym].cur - agg[sym].cost;
+        data.push(pl);
+        bgColors.push(palette[colorIndex % palette.length]);
+        colorIndex++;
+      }
+
+      receiptChartInst.data.labels = labels;
+      receiptChartInst.data.datasets = [{
+        label: 'K/Z (₺)',
+        data: data,
+        backgroundColor: bgColors,
+        borderWidth: 0
+      }];
+      receiptChartInst.update();
+    }
+
+    // --- Utils ---
+    function formatNum(num) {
+      if (isNaN(num)) return "0.00";
+      return num.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    function toggleDarkMode() {
+      document.body.classList.toggle('invert-mode');
+      const isDark = document.body.classList.contains('invert-mode');
+      localStorage.setItem('dark_mode_inverted', isDark);
+
+      // Re-init chart to update colors
+      if (receiptChartInst) {
+        receiptChartInst.destroy();
+        initChart();
+        renderTable(); // re-draws chart data
+      }
+    }
+
+    function openModal(id) { document.getElementById(id).style.display = 'flex'; }
+    function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+
+
+    // Init on Load
+    window.onload = init;
+
+    // Register Service Worker for PWA
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js').then(registration => {
+          console.log('SW registered with scope: ', registration.scope);
+        }).catch(err => {
+          console.error('SW registration failed: ', err);
+        });
+      });
+    }
+  </script>
+</body>
+
+</html>
